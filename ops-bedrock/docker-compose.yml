@@ -37,22 +37,22 @@ services:
       GETH_MINER_RECOMMIT: 100ms
 
   l2:
-    build:
-      context: .
-      dockerfile: Dockerfile.l2
+    image: reth:optimism
     ports:
       - "9545:8545"
-      - "8060:6060"
     volumes:
       - "l2_data:/db"
       - "${PWD}/../.devnet/genesis-l2.json:/genesis.json"
       - "${PWD}/test-jwt-secret.txt:/config/test-jwt-secret.txt"
-    entrypoint:  # pass the L2 specific flags by overriding the entry-point and adding extra arguments
-      - "/bin/sh"
-      - "/entrypoint.sh"
-      - "--authrpc.jwtsecret=/config/test-jwt-secret.txt"
-    environment:
-      GETH_MINER_RECOMMIT: 100ms
+    entrypoint: >
+      /usr/local/bin/op-reth node
+      --chain=/genesis.json
+      --datadir=/db
+      --http
+      --http.addr=0.0.0.0
+      --authrpc.addr="0.0.0.0"
+      --authrpc.jwtsecret=/config/test-jwt-secret.txt
+      -vvvv
 
   op-node:
     depends_on:

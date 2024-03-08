@@ -8,6 +8,7 @@ volumes:
   l1_data:
   l2_data:
   op_log:
+  redis:
 
 
 services:
@@ -56,6 +57,16 @@ services:
       --builder.max-tasks 24
       -vvvv
 
+  redis:
+    image: redis:latest
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis:/root/redis
+    environment:
+      - REDIS_PORT=6379
+
   op-node:
     depends_on:
       - op_stack_go_builder
@@ -91,6 +102,8 @@ services:
       --metrics.port=7300
       --pprof.enabled
       --rpc.enable-admin
+      --plasma.enabled=true
+      --plasma.redis-url=redis:6379
     ports:
       - "7545:8545"
       - "9003:9003"
@@ -165,6 +178,8 @@ services:
       OP_BATCHER_METRICS_ENABLED: "true"
       OP_BATCHER_RPC_ENABLE_ADMIN: "true"
       OP_BATCHER_BATCH_TYPE: 0
+      OP_BATCHER_PLASMA_ENABLED: "true"
+      OP_BATCHER_PLASMA_REDIS_URL: "redis:6379"
 
   op-challenger:
     depends_on:

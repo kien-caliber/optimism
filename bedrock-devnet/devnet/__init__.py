@@ -231,8 +231,22 @@ def devnet_deploy(paths):
         docker_env['L2OO_ADDRESS'] = l2_output_oracle
 
     # Bring up the rest of the services.
-    log.info('Bringing up `op-node`, `op-proposer` and `op-batcher`.')
-    run_command(['docker', 'compose', 'up', '-d', 'op-node', 'op-proposer', 'op-batcher', 'artifact-server'], cwd=paths.ops_bedrock_dir, env=docker_env)
+    log.info("Bringing up `op-node`, `op-proposer` and other services.")
+    run_command(
+        [
+            "docker",
+            "compose",
+            "up",
+            "-d",
+            "op-node",
+            "op-proposer",
+            "op-batcher",
+            "artifact-server",
+            "redis",
+        ],
+        cwd=paths.ops_bedrock_dir,
+        env=docker_env,
+    )
 
     # Optionally bring up op-challenger.
     if DEVNET_FPAC:

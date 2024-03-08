@@ -388,7 +388,7 @@ func (n *OpNode) initL2(ctx context.Context, cfg *Config, snapshotLog log.Logger
 
 	plasmaDA := plasma.NewPlasmaDA(n.log, cfg.Plasma)
 	if cfg.Plasma.Enabled {
-		n.log.Info("Plasma DA enabled", "da_server", cfg.Plasma.DAServerURL)
+		n.log.Info("Plasma DA enabled", "da_server", cfg.Plasma.DARedisURL)
 	}
 	if cfg.SafeDBPath != "" {
 		n.log.Info("Safe head database enabled", "path", cfg.SafeDBPath)

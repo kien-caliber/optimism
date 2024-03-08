@@ -385,6 +385,8 @@ func (l *BatchSubmitter) sendTransaction(ctx context.Context, txdata txData, que
 			l.recordFailedTx(txdata, err)
 			return nil
 		}
+	} else {
+		return fmt.Errorf("plasma DA is not enabled")
 	}
 
 	var candidate *txmgr.TxCandidate

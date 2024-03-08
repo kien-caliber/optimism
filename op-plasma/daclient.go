@@ -1,14 +1,12 @@
 package plasma
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/go-redis/redis"
 )
 
 // ErrNotFound is returned when the server could not find the input.
@@ -24,41 +22,31 @@ var ErrInvalidInput = errors.New("invalid input")
 // It creates commitments and retrieves input data + verifies if needed.
 // Currently only supports Keccak256 commitments but may be extended eventually.
 type DAClient struct {
-	url string
-	// VerifyOnRead sets the client to verify the commitment on read.
-	// SHOULD enable if the storage service is not trusted.
-	verify bool
+	redisClient *redis.Client
 }
 
-func NewDAClient(url string, verify bool) *DAClient {
-	return &DAClient{url, verify}
+func NewDAClient(redisUrl string, verify bool) *DAClient {
+	return &DAClient{
+		redisClient: redis.NewClient(&redis.Options{
+			Addr:     redisUrl,
+			Password: "", // no password set
+			DB:       0,  // use default DB
+		}),
+	}
 }
 
 // GetInput returns the input data for the given commitment bytes.
 func (c *DAClient) GetInput(ctx context.Context, key []byte) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/get/0x%x", c.url, key), nil)
+	keyHex := fmt.Sprintf("0x%x", key)
+	fmt.Println("GetInput", keyHex)
+	val, err := c.redisClient.Get(keyHex).Bytes()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode == http.StatusNotFound {
-		return nil, ErrNotFound
-	}
-	defer resp.Body.Close()
-	input, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	if c.verify {
-		exp := crypto.Keccak256(input)
-		if !bytes.Equal(exp, key) {
-			return nil, ErrCommitmentMismatch
+		if err == redis.Nil {
+			return nil, ErrNotFound
 		}
+		return nil, err
 	}
-	return input, nil
+	return []byte(val), nil
 }
 
 // SetInput sets the input data and returns the keccak256 hash commitment.
@@ -67,20 +55,13 @@ func (c *DAClient) SetInput(ctx context.Context, img []byte) ([]byte, error) {
 		return nil, ErrInvalidInput
 	}
 	key := crypto.Keccak256(img)
-	body := bytes.NewReader(img)
-	url := fmt.Sprintf("%s/put/0x%x", c.url, key)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/octet-stream")
-	resp, err := http.DefaultClient.Do(req)
+
+	// save to redis
+	keyHex := fmt.Sprintf("0x%x", key)
+	fmt.Println("SetInput", keyHex)
+	err := c.redisClient.Set(keyHex, img, 0).Err()
 	if err != nil {
 		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to store preimage: %v", resp.StatusCode)
 	}
 	return key, nil
 }

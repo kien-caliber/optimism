@@ -2,15 +2,14 @@ package plasma
 
 import (
 	"fmt"
-	"net/url"
 
+	"github.com/go-redis/redis"
 	"github.com/urfave/cli/v2"
 )
 
 const (
-	EnabledFlagName         = "plasma.enabled"
-	DaServerAddressFlagName = "plasma.da-server"
-	VerifyOnReadFlagName    = "plasma.verify-on-read"
+	EnabledFlagName    = "plasma.enabled"
+	DaRedisUrlFlagName = "plasma.redis-url"
 )
 
 func plasmaEnv(envprefix, v string) []string {
@@ -27,47 +26,44 @@ func CLIFlags(envPrefix string, category string) []cli.Flag {
 			Category: category,
 		},
 		&cli.StringFlag{
-			Name:     DaServerAddressFlagName,
-			Usage:    "HTTP address of a DA Server",
-			EnvVars:  plasmaEnv(envPrefix, "DA_SERVER"),
-			Category: category,
-		},
-		&cli.BoolFlag{
-			Name:     VerifyOnReadFlagName,
-			Usage:    "Verify input data matches the commitments from the DA storage service",
-			Value:    true,
-			EnvVars:  plasmaEnv(envPrefix, "VERIFY_ON_READ"),
+			Name:     DaRedisUrlFlagName,
+			Usage:    "Redis URL",
+			EnvVars:  plasmaEnv(envPrefix, "REDIS_URL"),
 			Category: category,
 		},
 	}
 }
 
 type CLIConfig struct {
-	Enabled      bool
-	DAServerURL  string
-	VerifyOnRead bool
+	Enabled    bool
+	DARedisURL string
 }
 
 func (c CLIConfig) Check() error {
-	if c.Enabled {
-		if c.DAServerURL == "" {
-			return fmt.Errorf("DA server URL is required when plasma da is enabled")
-		}
-		if _, err := url.Parse(c.DAServerURL); err != nil {
-			return fmt.Errorf("DA server URL is invalid: %w", err)
-		}
+	if !c.Enabled {
+		return fmt.Errorf("plasma must be enabled")
 	}
+
+	if c.DARedisURL == "" {
+		return fmt.Errorf("DA server URL is required when plasma da is enabled")
+	}
+
 	return nil
 }
 
 func (c CLIConfig) NewDAClient() *DAClient {
-	return &DAClient{url: c.DAServerURL, verify: c.VerifyOnRead}
+	return &DAClient{
+		redisClient: redis.NewClient(&redis.Options{
+			Addr:     c.DARedisURL,
+			Password: "", // no password set
+			DB:       0,  // use default DB
+		}),
+	}
 }
 
 func ReadCLIConfig(c *cli.Context) CLIConfig {
 	return CLIConfig{
-		Enabled:      c.Bool(EnabledFlagName),
-		DAServerURL:  c.String(DaServerAddressFlagName),
-		VerifyOnRead: c.Bool(VerifyOnReadFlagName),
+		Enabled:    c.Bool(EnabledFlagName),
+		DARedisURL: c.String(DaRedisUrlFlagName),
 	}
 }

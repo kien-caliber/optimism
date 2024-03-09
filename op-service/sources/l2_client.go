@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
+	// "github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/client"
@@ -180,21 +180,27 @@ func (s *L2Client) OutputV0AtBlock(ctx context.Context, blockHash common.Hash) (
 		return nil, ethereum.NotFound
 	}
 
-	proof, err := s.GetProof(ctx, predeploys.L2ToL1MessagePasserAddr, []common.Hash{}, blockHash.String())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get contract proof at block %s: %w", blockHash, err)
-	}
-	if proof == nil {
-		return nil, fmt.Errorf("proof %w", ethereum.NotFound)
-	}
-	// make sure that the proof (including storage hash) that we retrieved is correct by verifying it against the state-root
-	if err := proof.Verify(head.Root()); err != nil {
-		return nil, fmt.Errorf("invalid withdrawal root hash, state root was %s: %w", head.Root(), err)
-	}
+	// RISE FIXME: Ideally `reth` would provide proofs for historical blocks.
+	// Until then, we must make sure the proposer is connected to a trusted RPC...
+	// A less hacky intermediate solution is to provide such "trusted" behavior via
+	// a configuration.
+	//
+	// proof, err := s.GetProof(ctx, predeploys.L2ToL1MessagePasserAddr, []common.Hash{}, blockHash.String())
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to get contract proof at block %s: %w", blockHash, err)
+	// }
+	// if proof == nil {
+	// 	return nil, fmt.Errorf("proof %w", ethereum.NotFound)
+	// }
+	// // make sure that the proof (including storage hash) that we retrieved is correct by verifying it against the state-root
+	// if err := proof.Verify(head.Root()); err != nil {
+	// 	return nil, fmt.Errorf("invalid withdrawal root hash, state root was %s: %w", head.Root(), err)
+	// }
 	stateRoot := head.Root()
 	return &eth.OutputV0{
 		StateRoot:                eth.Bytes32(stateRoot),
-		MessagePasserStorageRoot: eth.Bytes32(proof.StorageHash),
+		// RISE FIXME: THIS IS ILLEGAL BUT WORKS FOR OUR DEVNET / THE PROPOSER...
+		MessagePasserStorageRoot: eth.Bytes32{},
 		BlockHash:                blockHash,
 	}, nil
 }

@@ -52,6 +52,8 @@ services:
       --http.addr=0.0.0.0
       --authrpc.addr="0.0.0.0"
       --authrpc.jwtsecret=/config/test-jwt-secret.txt
+      --builder.gaslimit 18446744073709551615
+      --builder.max-tasks 24
       -vvvv
 
   op-node:
